@@ -1,0 +1,158 @@
+# Publish to npm when a version tag is pushed.
+#
+# Setup (one time):
+#   1. Create an npm *Automation* token (npmjs.com -> Access Tokens). Automation
+#      tokens bypass 2FA, which a CI publish cannot satisfy interactively.
+#   2. Add it to this repo as the secret NPM_TOKEN
+#      (Settings -> Secrets and variables -> Actions).
+#
+# Then a release is just:
+#   ./scripts/release.sh patch --push
+#
+# The tag push is what triggers this. Nothing publishes from a branch push, so
+# an ordinary merge to main can never ship a release by accident.
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'          # v1.2.3
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'        # v1.2.3-beta.1
+
+permissions:
+  contents: read
+  id-token: write                        # npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # A published version can never be replaced, only deprecated, so every gate
+    # below runs before the publish rather than after it.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - name: The tag must match the version being published
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            echo "Retag, or fix package.json — publishing the wrong version cannot be undone."
+            exit 1
+          fi
+          echo "publishing $pkg as $GITHUB_REF_NAME"
+
+      - name: Refuse to republish a version that already exists
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          name="$(node -p "require('./package.json').name")"
+          if npm view "$name@$pkg" version >/dev/null 2>&1; then
+            echo "::error::$name@$pkg is already on the registry"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: The release notes must exist
+        run: node scripts/sync-version.mjs --check
+
+      - run: npm run lint
+      - run: npm test
+
+      # Provenance links the tarball to this workflow run, but the registry only
+      # accepts it for a public repository — so it is opt-in on visibility
+      # rather than a hard failure while this repo is private.
+      - name: Publish
+        run: |
+          if [ "${{ github.event.repository.private }}" = "true" ]; then
+            npm publish
+          else
+            npm publish --provenance
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          pkg="$(node -p "require('./package.json').version")"
+          name="$(node -p "require('./package.json').name")"
+          {
+            echo "### Published \`$name@$pkg\`"
+            echo
+            echo "- <https://www.npmjs.com/package/$name/v/$pkg>"
+            echo "- Next: \`./scripts/brew-sha256.sh\` and update \`Formula/krakenio-cli.rb\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Homebrew installs the tarball npm just published, so the formula can only be
+  # updated once that tarball exists — hence a separate job that waits for it.
+  #
+  # Needs HOMEBREW_TAP_TOKEN: a fine-grained PAT with Contents: read+write on
+  # kraken-io/homebrew-tap. Without it this job no-ops instead of failing, so
+  # the npm publish above still counts as a successful release.
+  homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the tarball to appear on the registry
+        id: tarball
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          url="https://registry.npmjs.org/${name}/-/${name}-${version}.tgz"
+          for attempt in $(seq 1 30); do
+            if curl -fsSL "$url" -o pkg.tgz; then
+              echo "url=$url"                              >> "$GITHUB_OUTPUT"
+              echo "sha=$(sha256sum pkg.tgz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+              echo "version=$version"                      >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "not on the registry yet (attempt $attempt/30), waiting…"
+            sleep 10
+          done
+          echo "::error::$url never became available"
+          exit 1
+
+      - name: Update the formula in the tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          URL: ${{ steps.tarball.outputs.url }}
+          SHA: ${{ steps.tarball.outputs.sha }}
+          VERSION: ${{ steps.tarball.outputs.version }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "::notice::HOMEBREW_TAP_TOKEN is not set — skipping the tap update."
+            echo "Update it by hand: ./scripts/brew-sha256.sh"
+            exit 0
+          fi
+
+          git clone --depth 1 \
+            "https://x-access-token:${TAP_TOKEN}@github.com/kraken-io/homebrew-tap.git" tap
+          cd tap
+
+          # Update this repo's canonical copy first, then mirror it into the tap,
+          # so the two can never describe different builds.
+          formula=Formula/krakenio-cli.rb
+          mkdir -p Formula
+          cp ../Formula/krakenio-cli.rb "$formula"
+          sed -i -E "s|url \"[^\"]*\"|url \"${URL}\"|" "$formula"
+          sed -i -E "s|sha256 \"[0-9a-f]{64}\"|sha256 \"${SHA}\"|" "$formula"
+
+          grep -q "$SHA" "$formula" || { echo "::error::sha256 was not written"; exit 1; }
+
+          if git diff --quiet; then
+            echo "tap already up to date at ${VERSION}"
+            exit 0
+          fi
+
+          git -c user.name='Nekkradev' -c user.email='dev@nekkra.com' \
+              commit -am "krakenio-cli ${VERSION}"
+          git push
+          echo "### Homebrew tap updated to \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"

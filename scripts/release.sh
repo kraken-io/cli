@@ -105,6 +105,9 @@ fi
 cat <<EOF
 
   Next (see RELEASING.md):
-    npm publish                 # prepublishOnly re-runs lint + tests
+    pushing the tag triggers .github/workflows/publish.yml, which publishes to
+    npm once the tag, changelog, lint and tests all check out.
+    To publish by hand instead: npm publish
+
     ./scripts/brew-sha256.sh    # then paste url + sha256 into Formula/krakenio-cli.rb
 EOF

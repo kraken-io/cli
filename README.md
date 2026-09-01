@@ -913,6 +913,11 @@ is mocked at the network boundary.
 ./scripts/release.sh patch --push      # …and push the branch with its tag
 ```
 
+Pushing the tag is what publishes: `.github/workflows/publish.yml` fires on
+`v*.*.*` and ships to npm once the tag matches `package.json`, the version is
+not already on the registry, the changelog has a section for it, and lint and
+the suite pass. A branch push never publishes.
+
 `release.sh` refuses to run on a dirty tree, off `main`, behind `origin`, or
 without a `CHANGELOG.md` section for the new version. `package.json` stays the
 single source of truth for the version; the tag is derived from it, and the

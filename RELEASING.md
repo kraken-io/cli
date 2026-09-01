@@ -41,9 +41,25 @@ echo x > photo.jpg && ./node_modules/.bin/krakenio optimize photo.jpg --dry-run
 
 ## 3. Publish to npm
 
+Pushing the tag is the publish. `.github/workflows/publish.yml` fires on
+`v*.*.*`, and before it publishes it checks that the tag matches
+`package.json`, that the version is not already on the registry, that
+`CHANGELOG.md` has a section for it, and that lint and the suite pass.
+
+```bash
+./scripts/release.sh patch --push     # bump, tag, push — CI publishes
+```
+
+It needs one secret: `NPM_TOKEN`, an npm **Automation** token (Automation
+bypasses 2FA, which a CI publish cannot answer interactively). Add it under
+Settings → Secrets and variables → Actions.
+
+Only a tag triggers it, so a merge to `main` can never ship a release by
+accident. To publish by hand instead — the first release, or if CI is down:
+
 ```bash
 npm publish            # prepublishOnly runs lint + tests again
-git push && git push --tags
+git push --follow-tags
 ```
 
 ## 4. Update the Homebrew formula
