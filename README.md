@@ -15,7 +15,7 @@
 
 [![npm](https://img.shields.io/npm/v/krakenio-cli.svg?color=0b7285&label=npm)](https://www.npmjs.com/package/krakenio-cli)
 [![node](https://img.shields.io/node/v/krakenio-cli.svg?color=0b7285)](https://nodejs.org)
-[![tests](https://img.shields.io/badge/tests-203%20passing-0b7285.svg)](#development)
+[![ci](https://github.com/kraken-io/krakenio-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/kraken-io/krakenio-cli/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/krakenio-cli.svg?color=0b7285)](LICENSE)
 
 [Install](#install) · [Quick start](#quick-start) · [Output rules](#output-what-gets-written-and-where) · [Commands](#command-reference) · [Cloud storage](#cloud-storage) · [Recipes](#recipes) · [Troubleshooting](#troubleshooting)
@@ -695,8 +695,15 @@ Every value resolves as **CLI flag → environment variable → config file → 
 | Log size cap (bytes) | — | `KRAKEN_LOG_MAX_BYTES` | `log_max_bytes` |
 | Automatic logging | `--no-log` | `KRAKEN_NO_LOG` | `log` (`false` to disable) |
 
-Config lives in `~/.config/krakenio/config.json`, written `0600`. Override the
-directory with `KRAKEN_CONFIG_DIR` (useful in CI). The API endpoint is fixed at
+Locations follow each platform's convention:
+
+| | Config | Logs |
+|---|---|---|
+| Linux / macOS | `~/.config/krakenio/config.json` | `$XDG_STATE_HOME/krakenio/logs` (default `~/.local/state`) |
+| Windows | `%APPDATA%\krakenio\config.json` | `%LOCALAPPDATA%\krakenio\Logs` |
+
+Override either with `KRAKEN_CONFIG_DIR` / `KRAKEN_LOG_DIR` (useful in CI).
+`krakenio config show` prints both resolved paths. The API endpoint is fixed at
 `https://api.kraken.io`.
 
 Two more environment switches:
@@ -823,7 +830,9 @@ build artifact — or `--no-log` if you would rather it never touch the disk.
 flags are visible to anyone who can list processes on the machine — the CLI
 redacts them from its own transcripts, but it cannot redact them from `ps`.
 
-**Transcripts.** Logs are `0600` in a `0700` directory. They contain the command
+**Transcripts.** Logs are `0600` in a `0700` directory on Linux and macOS. Windows
+has no POSIX mode bits, so they inherit the ACL of `%LOCALAPPDATA%`, which is
+already restricted to your account. They contain the command
 line (with credential flags redacted), local file paths, and `kraked_url`
 links — which grant access to your results for an hour. Treat a log as
 account-adjacent: safe to attach to a bug report, not to publish.
@@ -888,9 +897,12 @@ endpoints ship. See [RELEASING.md](RELEASING.md).
 
 ```bash
 npm install
-npm test          # 203 tests, no network required
+npm test          # no network required
 npm run lint      # syntax-check every source file
 ```
+
+CI runs the suite on Linux, macOS and Windows, and on the oldest supported Node
+(18.17) as well as current.
 
 | File | Responsibility |
 |---|---|
