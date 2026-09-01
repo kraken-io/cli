@@ -375,7 +375,9 @@ describe('credentials never reach a transcript', () => {
   });
 });
 
-describe('transcript permissions', () => {
+// Windows has no POSIX mode bits — chmod only toggles a read-only flag — so the
+// files inherit the user profile's ACL instead. Nothing to assert there.
+describe('transcript permissions', { skip: process.platform === 'win32' && 'POSIX modes only' }, () => {
   test('a log this CLI creates is owner-only, like the credential store', () => {
     const file = path.join(dir, 'sub', 'krakenio-2026-09-01.log');
     const log = new RunLog(file);

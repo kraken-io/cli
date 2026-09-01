@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: [22]
+        include:
+          - os: ubuntu-latest
+            node: 18          # the floor in engines
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+      - name: Smoke test the CLI
+        shell: bash
+        run: |
+          set -eu
+          node -e "require('fs').writeFileSync('smoke.jpg','x')"
+          node bin/krakenio.js --version
+          node bin/krakenio.js config show
+          node bin/krakenio.js optimize smoke.jpg --dry-run
+
+          # The run above must have written a transcript to the default location.
+          dir="$(node bin/krakenio.js logs path)"
+          echo "default log dir: $dir"
+          ls "$dir"
+          node -e "
+            const fs=require('fs');
+            const files=fs.readdirSync(process.argv[1]).filter(n=>/^krakenio-\\d{4}-\\d{2}-\\d{2}\\.log$/.test(n));
+            if(!files.length) throw new Error('no transcript written to '+process.argv[1]);
+            console.log('transcript:', files[0]);
+          " "$dir"
+          node bin/krakenio.js logs

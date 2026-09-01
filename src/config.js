@@ -8,19 +8,24 @@ import os from 'node:os';
 // self-hosted deployment to point at, so the base URL is not configurable.
 export const API_HOST = 'https://api.kraken.io';
 
-const DIR = process.env.KRAKEN_CONFIG_DIR || path.join(os.homedir(), '.config', 'krakenio');
+const WIN = process.platform === 'win32';
+
+// %APPDATA% on Windows, ~/.config elsewhere.
+const DIR = process.env.KRAKEN_CONFIG_DIR
+  || (WIN && process.env.APPDATA
+    ? path.join(process.env.APPDATA, 'krakenio')
+    : path.join(os.homedir(), '.config', 'krakenio'));
 export const CONFIG_FILE = path.join(DIR, 'config.json');
 
-// Where run transcripts go when --log-file is not given.
-//
-// The XDG Base Directory spec puts logs under $XDG_STATE_HOME — "state data
-// that should persist between restarts, but is not important enough for
-// $XDG_DATA_HOME" — and names logs as the example. ~/.local/state is its
-// default, matching the ~/.config choice above.
-export const LOG_DIR = process.env.KRAKEN_LOG_DIR || path.join(
-  process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'),
-  'krakenio', 'logs',
-);
+// Run transcripts: %LOCALAPPDATA% on Windows, $XDG_STATE_HOME (the spec's home
+// for logs, default ~/.local/state) elsewhere.
+export const LOG_DIR = process.env.KRAKEN_LOG_DIR
+  || (WIN && process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, 'krakenio', 'Logs')
+    : path.join(
+      process.env.XDG_STATE_HOME || path.join(os.homedir(), '.local', 'state'),
+      'krakenio', 'logs',
+    ));
 
 // Retention: one file per day, pruned by age and then by total size, so an
 // unattended cron job can never fill a disk. Both are overridable.
