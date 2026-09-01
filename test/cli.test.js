@@ -27,6 +27,8 @@ const touch = (p, body = 'imagebytes') => {
 };
 
 // Runs the CLI and always returns {code, out} rather than throwing.
+const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 function run(args, { env = {}, cwd = dir } = {}) {
   try {
     const out = execFileSync(process.execPath, [BIN, ...args], {
@@ -208,8 +210,9 @@ describe('optimize --dry-run', () => {
     touch('photos/a.jpg'); touch('photos/nested/b.png');
     const { out } = run(['optimize', path.join(dir, 'photos'), '--out-dir', path.join(dir, 'web'), '--dry-run']);
     assert.match(out, /2 images would be optimized/);
-    assert.match(out, /web\/a\.kraked\.jpg/);
-    assert.match(out, /web\/nested\/b\.kraked\.png/);
+    // Local paths use the platform separator; build the expectation with path.join.
+    assert.match(out, new RegExp(reEscape(path.join('web', 'a.kraked.jpg'))));
+    assert.match(out, new RegExp(reEscape(path.join('web', 'nested', 'b.kraked.png'))));
   });
 
   test('a second run over a folder skips the outputs the first one made', () => {

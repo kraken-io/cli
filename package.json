@@ -23,8 +23,8 @@
     "node": ">=18.17"
   },
   "scripts": {
-    "test": "node --test \"test/**/*.test.js\"",
-    "test:watch": "node --test --watch \"test/**/*.test.js\"",
+    "test": "node --test",
+    "test:watch": "node --test --watch",
     "version": "node scripts/sync-version.mjs && git add Formula/krakenio-cli.rb CHANGELOG.md",
     "version:check": "node scripts/sync-version.mjs --check",
     "release": "./scripts/release.sh",
