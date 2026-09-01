@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+
+# npm artifacts
+*.tgz
+npm-debug.log*
+
+# CLI output — generated results and exported logs/reports
+*.kraked.*
+*.restored.*
+*.enhanced.*
+*.log

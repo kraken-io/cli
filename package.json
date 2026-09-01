@@ -1,0 +1,68 @@
+{
+  "name": "krakenio-cli",
+  "version": "0.4.1",
+  "description": "Command-line client for the Kraken.io image API — optimize, convert and resize images from your terminal.",
+  "type": "module",
+  "bin": {
+    "krakenio": "bin/krakenio.js"
+  },
+  "main": "src/commands.js",
+  "exports": {
+    ".": "./src/commands.js",
+    "./client": "./src/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18.17"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "test:watch": "node --test --watch \"test/**/*.test.js\"",
+    "version": "node scripts/sync-version.mjs && git add Formula/krakenio-cli.rb CHANGELOG.md",
+    "version:check": "node scripts/sync-version.mjs --check",
+    "release": "./scripts/release.sh",
+    "lint": "node --check bin/krakenio.js && node --check src/client.js && node --check src/commands.js && node --check src/config.js && node --check src/log.js && node --check src/logo.js && node --check src/logo-data.js && node --check src/params.js && node --check src/paths.js && node --check src/ui.js",
+    "prepublishOnly": "npm run lint && npm test"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "ora": "^8.1.1",
+    "picocolors": "^1.1.1"
+  },
+  "keywords": [
+    "kraken",
+    "kraken.io",
+    "image",
+    "image-optimization",
+    "compression",
+    "cli",
+    "webp",
+    "avif",
+    "resize",
+    "convert",
+    "jpeg",
+    "png",
+    "batch"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kraken-io/krakenio-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kraken-io/krakenio-cli/issues"
+  },
+  "homepage": "https://github.com/kraken-io/krakenio-cli#readme",
+  "author": "Kraken.io",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}
