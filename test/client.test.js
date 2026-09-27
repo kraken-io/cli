@@ -96,6 +96,20 @@ describe('file input', () => {
     assert.equal(r.success, false);
     assert.match(r.error, /file is empty/);
   });
+
+  test('a file exceeding the maximum size limit is caught before reading into memory', async () => {
+    const f = path.join(dir, 'huge.jpg');
+    fs.writeFileSync(f, 'x');
+    const origMax = KrakenClient.MAX_FILE_BYTES;
+    try {
+      KrakenClient.MAX_FILE_BYTES = 0.5;
+      const r = await client().run(f);
+      assert.equal(r.success, false);
+      assert.match(r.error, /file too large/);
+    } finally {
+      KrakenClient.MAX_FILE_BYTES = origMax;
+    }
+  });
 });
 
 describe('error handling', () => {

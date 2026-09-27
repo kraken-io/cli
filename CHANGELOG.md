@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2]
+
+### Performance & Memory
+
+- **Streaming downloads direct to disk.** Downloaded images are now piped directly to disk (`Readable.fromWeb` → `fs.createWriteStream`) rather than being buffered entirely in RAM (`arrayBuffer()` + `Buffer.from()`), drastically reducing memory consumption during batch operations.
+- **Upload memory sanity check.** File size is now checked via `fs.statSync` before allocating Buffer memory, immediately refusing empty files and files exceeding Kraken.io's maximum supported limit (100 MB) without bloating the process heap.
+
+### Housekeeping
+
+- Cleaned up local workspace and assistant files; added `.claude/`, `.vscode/`, `.idea/` to `.gitignore`.
+- Ensured executable bit on release scripts (`scripts/brew-sha256.sh`).
+
 ## [0.4.1] — 2026-09-01
 
 ### Security

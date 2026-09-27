@@ -5,6 +5,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 export function isUrl(input) {
   return /^https?:\/\//i.test(input);
@@ -38,6 +40,10 @@ export function describeError(json) {
 }
 
 export class KrakenClient {
+  // Kraken.io API plans enforce a per-file upload limit (up to 100 MB).
+  // Checking this via statSync avoids reading multi-gigabyte files into RAM Buffer.
+  static MAX_FILE_BYTES = 100 * 1024 * 1024;
+
   constructor({ host, auth, timeout = 120000 }) {
     this.host = String(host).replace(/\/+$/, '');
     this.auth = auth;
@@ -102,6 +108,18 @@ export class KrakenClient {
     if (isUrl(input)) {
       return this._post(restore ? '/v1/url/restore' : '/v1/url', { ...body, url: input });
     }
+    let st;
+    try {
+      st = fs.statSync(input);
+    } catch (e) {
+      const why = e.code === 'ENOENT' ? 'file not found' : e.code === 'EACCES' ? 'permission denied' : e.message;
+      return { success: false, error: `${why}: ${input}`, _status: 0 };
+    }
+    if (st.size === 0) return { success: false, error: `file is empty: ${input}`, _status: 0 };
+    if (st.size > KrakenClient.MAX_FILE_BYTES) {
+      const mb = (st.size / (1024 * 1024)).toFixed(1);
+      return { success: false, error: `file too large (${mb} MB exceeds Kraken.io maximum limit of 100 MB): ${input}`, _status: 0 };
+    }
     let bytes;
     try {
       bytes = fs.readFileSync(input);
@@ -109,7 +127,6 @@ export class KrakenClient {
       const why = e.code === 'ENOENT' ? 'file not found' : e.code === 'EACCES' ? 'permission denied' : e.message;
       return { success: false, error: `${why}: ${input}`, _status: 0 };
     }
-    if (bytes.length === 0) return { success: false, error: `file is empty: ${input}`, _status: 0 };
     return this._post(restore ? '/v1/upload/restore' : '/v1/upload', body, {
       bytes,
       name: path.basename(input),
@@ -120,9 +137,9 @@ export class KrakenClient {
     return this._post('/user_status', { auth: this.auth });
   }
 
-  // Download a kraked_url to `dest`. Writes via a temp file + rename so an
-  // interrupted download can never leave a truncated image behind — which
-  // matters most when `dest` is the user's original (--overwrite).
+  // Download a kraked_url to `dest`. Streams directly to disk via a temp file +
+  // atomic rename so an interrupted download can never leave a truncated image
+  // behind, and memory is not held up buffering large images.
   async download(url, dest) {
     // The URL comes from the API response, so it decides what this machine
     // fetches. Refuse anything that isn't HTTPS rather than follow a downgrade
@@ -141,22 +158,26 @@ export class KrakenClient {
 
     const res = await this._fetch(parsed.href, {});
     if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
-    const buf = Buffer.from(await res.arrayBuffer());
     const full = path.resolve(dest);
     fs.mkdirSync(path.dirname(full), { recursive: true });
     // An unpredictable name opened with 'wx' (O_CREAT|O_EXCL): if anything is
     // already at that path — including a symlink someone planted in a shared
     // output directory — the write fails instead of following it.
     const tmp = `${full}.krakenio-${crypto.randomBytes(8).toString('hex')}.part`;
+    let bytes = 0;
     try {
-      // No explicit mode: this file is renamed into place as the user's output
-      // image, so it must land with normal umask permissions, not owner-only.
-      fs.writeFileSync(tmp, buf, { flag: 'wx' });
+      const fileStream = fs.createWriteStream(tmp, { flags: 'wx' });
+      if (res.body) {
+        await pipeline(Readable.fromWeb(res.body), fileStream);
+      } else {
+        fileStream.end();
+      }
+      bytes = fs.statSync(tmp).size;
       fs.renameSync(tmp, full);
     } catch (e) {
       try { fs.unlinkSync(tmp); } catch { /* nothing to clean up */ }
       throw e;
     }
-    return buf.length;
+    return bytes;
   }
 }
