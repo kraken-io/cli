@@ -167,11 +167,8 @@ export class KrakenClient {
     let bytes = 0;
     try {
       const fileStream = fs.createWriteStream(tmp, { flags: 'wx' });
-      if (res.body) {
-        await pipeline(Readable.fromWeb(res.body), fileStream);
-      } else {
-        fileStream.end();
-      }
+      const source = res.body ? Readable.fromWeb(res.body) : Readable.from([]);
+      await pipeline(source, fileStream);
       bytes = fs.statSync(tmp).size;
       fs.renameSync(tmp, full);
     } catch (e) {
