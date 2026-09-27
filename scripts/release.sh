@@ -43,7 +43,7 @@ fi
 [ -z "$(git status --porcelain)" ] || fail "working tree is dirty — commit or stash first"
 
 if git remote get-url origin >/dev/null 2>&1; then
-  git fetch --quiet origin "$branch" 2>/dev/null || true
+  GIT_TERMINAL_PROMPT=0 git fetch --quiet origin "$branch" 2>/dev/null || true
   if git rev-parse --verify --quiet "origin/$branch" >/dev/null; then
     behind=$(git rev-list --count "HEAD..origin/$branch")
     [ "$behind" -eq 0 ] || fail "$branch is $behind commit(s) behind origin — pull first"
