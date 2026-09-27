@@ -338,7 +338,7 @@ Available on `optimize` (and on `restore` / `enhance` once released).
 | `-y, --yes` | Skip confirmation prompts |
 | `--types <list>` | Which formats a folder scan picks up ([details](#--types)). PDFs are excluded by default |
 | `--include-generated` | Also process this CLI's own `.kraked` outputs when scanning folders |
-| `--concurrency <n>` | Parallel requests in batch mode (default 5, max 50) |
+| `--concurrency <n>` | Parallel requests in batch mode (default 10, max 100) |
 | `--timeout <seconds>` | Per-request timeout (default 120) — a stalled call fails instead of hanging the batch |
 | `--dev` | Sandbox mode — no quota used, but results are randomized placeholders |
 

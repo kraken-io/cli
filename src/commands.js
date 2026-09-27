@@ -200,7 +200,10 @@ async function executeSingle(client, entry, opts, ctx) {
   }
   for (const s of res.saved) printSaved(rel(s.dest), s.bytes);
   for (const s of res.skipped) info(`kept existing ${pc.bold(rel(s))} ${pc.dim('(--no-clobber)')}`);
-  if (res.saveError) warn('result is on Kraken.io, but the local download failed: ' + res.saveError);
+  if (res.saveError) {
+    warn('result is on Kraken.io, but the local download failed: ' + res.saveError);
+    process.exitCode = 1;
+  }
   if (opts.save === false && !res.raw.results && res.raw.kraked_url) {
     info(pc.dim('results stay on Kraken.io for one hour only'));
   }
@@ -255,7 +258,7 @@ async function executeBatch(client, plan, opts, ctx) {
   if (!go) { info('Aborted.'); return []; }
   console.log();
 
-  const conc = opts.concurrency != null ? toInt(opts.concurrency, '--concurrency', { min: 1, max: 50 }) : 5;
+  const conc = opts.concurrency != null ? toInt(opts.concurrency, '--concurrency', { min: 1, max: 100 }) : 10;
   let done = 0;
   const results = [];
   await pool(plan, conc, async (entry) => {
@@ -269,13 +272,13 @@ async function executeBatch(client, plan, opts, ctx) {
           ? `${fmtBytes(res.raw.original_size)}→${fmtBytes(res.raw.kraked_size)}`
           : 'ok');
       if (res.skipped?.length) detail += ' (kept existing)';
-      if (res.saveError) detail += pc.yellow(' — download failed');
+      if (res.saveError) detail += pc.yellow(` — download failed: ${res.saveError}`);
     }
     batchLine(done, n, displayName(entry.input), res.ok ? { ok: true, info: detail } : { ok: false, error: res.error });
     results.push(res);
   });
 
-  const okRes = results.filter((r) => r.ok);
+  const okRes = results.filter((r) => r.ok && !r.saveError);
   printBatchSummary({
     ok: okRes.length,
     failed: results.length - okRes.length,
@@ -408,7 +411,7 @@ async function dispatchInner(args, opts, ctx, log) {
   // typo fails identically whether or not --dry-run was passed.
   paramsFor({ input: items[0].input }, opts, ctx, 'probe.jpg');
   if (opts.timeout != null) toInt(opts.timeout, '--timeout', { min: 5, max: 3600 });
-  if (opts.concurrency != null) toInt(opts.concurrency, '--concurrency', { min: 1, max: 50 });
+  if (opts.concurrency != null) toInt(opts.concurrency, '--concurrency', { min: 1, max: 100 });
 
   if (opts.quality != null && !opts.lossy && !ctx.enhance) {
     warn('--quality only affects lossy JPEG output; add --lossy for it to take effect.');
@@ -445,7 +448,7 @@ async function dispatchInner(args, opts, ctx, log) {
   if (plan.length === 1) {
     if (opts.overwrite && !opts.quiet) {
       const go = await confirm(`Replace ${pc.bold(displayName(plan[0].input))} in place?`, { yes: opts.yes });
-      if (!go) { info('Aborted.'); return; }
+      if (!go) { info('Aborted.'); return []; }
     }
     results = await executeSingle(client, plan[0], opts, ctx);
   } else {

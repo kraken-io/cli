@@ -13,7 +13,7 @@ export function setLogSink(fn) { sink = fn; }
 function tee(level, text) { if (sink) { try { sink(level, text); } catch { /* logging must never break a run */ } } }
 
 // Print to stdout and mirror to the transcript.
-function say(level, text) { console.log(text); tee(level, text); }
+export function say(level, text) { console.log(text); tee(level, text); }
 
 export function spinner(text) {
   return ora({ text, spinner: 'dots', color: 'cyan' }).start();

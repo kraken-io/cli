@@ -6,7 +6,15 @@ import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { KrakenClient, isUrl, describeError, STATUS_MESSAGES } from '../src/client.js';
+import {
+  KrakenClient,
+  isUrl,
+  describeError,
+  STATUS_MESSAGES,
+  isRetryableStatus,
+  isRetryableError,
+  parseRetryAfter,
+} from '../src/client.js';
 
 let server, base, handler, received;
 
@@ -254,3 +262,107 @@ describe('download hardening', () => {
     );
   });
 });
+
+describe('automatic retry logic', () => {
+  test('isRetryableStatus identifies 429 and 504 specifically', () => {
+    assert.equal(isRetryableStatus(429), true);
+    assert.equal(isRetryableStatus(504), true);
+    assert.equal(isRetryableStatus(200), false);
+    assert.equal(isRetryableStatus(400), false);
+    assert.equal(isRetryableStatus(404), false);
+    assert.equal(isRetryableStatus(500), false);
+  });
+
+  test('isRetryableError handles network errors and excludes AbortError and ECONNREFUSED', () => {
+    assert.equal(isRetryableError(new TypeError('fetch failed')), true);
+    assert.equal(isRetryableError({ name: 'AbortError' }), false);
+    assert.equal(isRetryableError({ code: 'ECONNREFUSED' }), false);
+    assert.equal(isRetryableError({ cause: { code: 'ECONNREFUSED' } }), false);
+    assert.equal(isRetryableError({ cause: { message: 'bad port' } }), false);
+    assert.equal(isRetryableError({ cause: { code: 'ECONNRESET' } }), true);
+    assert.equal(isRetryableError({ cause: { code: 'ETIMEDOUT' } }), true);
+    assert.equal(isRetryableError(null), false);
+  });
+
+  test('parseRetryAfter parses seconds and HTTP dates', () => {
+    assert.equal(parseRetryAfter('5'), 5000);
+    assert.equal(parseRetryAfter('0'), 0);
+    assert.equal(parseRetryAfter(null), null);
+    assert.equal(parseRetryAfter('invalid'), null);
+    const future = new Date(Date.now() + 10000).toUTCString();
+    const parsed = parseRetryAfter(future);
+    assert.ok(parsed > 0 && parsed <= 10000);
+  });
+
+  test('retries on HTTP 429 and succeeds on subsequent attempt', async () => {
+    let calls = 0;
+    handler = (req, res) => {
+      calls++;
+      if (calls < 3) {
+        res.writeHead(429, { 'retry-after': '0' });
+        res.end(JSON.stringify({ success: false, error: 'too many requests' }));
+      } else {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: true, kraked_url: 'http://site/b.jpg' }));
+      }
+    };
+    const c = new KrakenClient({ host: base, auth: {}, retryDelay: 5, maxRetries: 5 });
+    const r = await c.run('https://site/a.jpg');
+    assert.equal(calls, 3);
+    assert.equal(r.success, true);
+    assert.equal(r.kraked_url, 'http://site/b.jpg');
+  });
+
+  test('retries on HTTP 504 and succeeds on subsequent attempt', async () => {
+    let calls = 0;
+    handler = (req, res) => {
+      calls++;
+      if (calls < 2) {
+        res.writeHead(504);
+        res.end('gateway timeout');
+      } else {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      }
+    };
+    const c = new KrakenClient({ host: base, auth: {}, retryDelay: 5, maxRetries: 5 });
+    const r = await c.run('https://site/a.jpg');
+    assert.equal(calls, 2);
+    assert.equal(r.success, true);
+  });
+
+  test('exhausts retries on persistent 429', async () => {
+    let calls = 0;
+    handler = (req, res) => {
+      calls++;
+      res.writeHead(429, { 'retry-after': '0' });
+      res.end(JSON.stringify({ success: false, error: 'rate limited' }));
+    };
+    const c = new KrakenClient({ host: base, auth: {}, retryDelay: 5, maxRetries: 3 });
+    const r = await c.run('https://site/a.jpg');
+    assert.equal(calls, 4); // initial + 3 retries
+    assert.equal(r.success, false);
+    assert.equal(r._status, 429);
+  });
+
+  test('download retries on 504 and completes successfully', async () => {
+    let calls = 0;
+    handler = (req, res) => {
+      calls++;
+      if (calls === 1) {
+        res.writeHead(504);
+        res.end('gateway timeout');
+      } else {
+        res.writeHead(200);
+        res.end('RETRY_IMAGE_DATA');
+      }
+    };
+    const c = new KrakenClient({ host: base, auth: {}, retryDelay: 5, maxRetries: 3 });
+    const dest = path.join(dir, 'retry-test.jpg');
+    const bytes = await c.download(`${base}/img.jpg`, dest);
+    assert.equal(calls, 2);
+    assert.equal(bytes, 16);
+    assert.equal(fs.readFileSync(dest, 'utf8'), 'RETRY_IMAGE_DATA');
+  });
+});
+

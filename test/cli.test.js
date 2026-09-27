@@ -234,6 +234,8 @@ describe('validation happens before anything is sent', () => {
     [['--keep-extension'], /only applies together with --convert/],
     [['--timeout', '0'], /--timeout must be between/],
     [['--concurrency', 'lots'], /--concurrency must be a whole number/],
+    [['--concurrency', '0'], /--concurrency must be between 1 and 100/],
+    [['--concurrency', '101'], /--concurrency must be between 1 and 100/],
   ];
   for (const [args, re] of cases) {
     test(`${args.join(' ')} → exit 2`, () => {

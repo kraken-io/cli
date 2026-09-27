@@ -39,15 +39,50 @@ export function describeError(json) {
   return own || mapped || (json?._status ? `HTTP ${json._status}` : 'unknown error');
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function isRetryableStatus(status) {
+  return status === 429 || status === 504;
+}
+
+export function isRetryableError(err) {
+  if (!err || err.name === 'AbortError') return false;
+  const code = err.code || err.cause?.code;
+  if (code === 'ECONNREFUSED') return false;
+  const msg = err.cause?.message || err.message || '';
+  if (/ECONNREFUSED|bad port/i.test(msg)) return false;
+  return true;
+}
+
+export function parseRetryAfter(header) {
+  if (!header) return null;
+  const sec = Number(header);
+  if (!isNaN(sec) && sec >= 0) return sec * 1000;
+  const date = Date.parse(header);
+  if (!isNaN(date)) {
+    const diff = date - Date.now();
+    return diff > 0 ? diff : 0;
+  }
+  return null;
+}
+
 export class KrakenClient {
   // Kraken.io API plans enforce a per-file upload limit (up to 100 MB).
   // Checking this via statSync avoids reading multi-gigabyte files into RAM Buffer.
   static MAX_FILE_BYTES = 100 * 1024 * 1024;
 
-  constructor({ host, auth, timeout = 120000 }) {
+  constructor({ host, auth, timeout = 120000, maxRetries = 5, retryDelay = 500 } = {}) {
     this.host = String(host).replace(/\/+$/, '');
     this.auth = auth;
     this.timeout = timeout;
+    this.maxRetries = maxRetries;
+    this.retryDelay = retryDelay;
+  }
+
+  _calcDelay(attempt) {
+    const base = this.retryDelay * Math.pow(2, attempt);
+    const jitter = Math.floor(Math.random() * 200);
+    return Math.min(base + jitter, 10000);
   }
 
   async _fetch(url, init) {
@@ -63,42 +98,56 @@ export class KrakenClient {
   async _post(pathname, body, file) {
     const url = this.host + pathname;
     const t0 = Date.now();
-    let init;
-    if (file) {
-      // Field names are ours to choose per the docs; `data` + `upload` mirrors
-      // the official cURL example exactly.
-      const form = new FormData();
-      form.append('data', JSON.stringify(body));
-      form.append('upload', new Blob([file.bytes]), file.name);
-      init = { method: 'POST', body: form };
-    } else {
-      init = { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      let init;
+      if (file) {
+        // Field names are ours to choose per the docs; `data` + `upload` mirrors
+        // the official cURL example exactly.
+        const form = new FormData();
+        form.append('data', JSON.stringify(body));
+        form.append('upload', new Blob([file.bytes]), file.name);
+        init = { method: 'POST', body: form };
+      } else {
+        init = { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+      }
+      let res;
+      try {
+        res = await this._fetch(url, init);
+      } catch (e) {
+        if (attempt < this.maxRetries && isRetryableError(e)) {
+          await sleep(this._calcDelay(attempt));
+          continue;
+        }
+        const cause = e.cause?.message ? ` (${e.cause.message})` : '';
+        const msg = e.name === 'AbortError'
+          ? `timed out after ${Math.round(this.timeout / 1000)}s`
+          : `could not reach ${url}: ${e.message}${cause}`;
+        return { success: false, error: msg, _status: 0, _ms: Date.now() - t0 };
+      }
+
+      if (attempt < this.maxRetries && isRetryableStatus(res.status)) {
+        const retryAfter = parseRetryAfter(res.headers?.get('retry-after'));
+        await sleep(retryAfter ?? this._calcDelay(attempt));
+        continue;
+      }
+
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        json = { success: res.ok, error: text.trim() || undefined };
+      }
+      if (json === null || typeof json !== 'object') json = { success: res.ok };
+      if (json.success === undefined) json.success = res.ok;
+      // A 2xx with success:true is the only real success; everything else gets a
+      // message, even when the body didn't carry one.
+      if (!res.ok) json.success = false;
+      json._status = res.status;
+      json._ms = Date.now() - t0;
+      if (!json.success && !json.error && !json.message) json.error = STATUS_MESSAGES[res.status] || `HTTP ${res.status}`;
+      return json;
     }
-    let res;
-    try {
-      res = await this._fetch(url, init);
-    } catch (e) {
-      const msg = e.name === 'AbortError'
-        ? `timed out after ${Math.round(this.timeout / 1000)}s`
-        : `could not reach ${url}: ${e.message}`;
-      return { success: false, error: msg, _status: 0, _ms: Date.now() - t0 };
-    }
-    const text = await res.text();
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = { success: res.ok, error: text.trim() || undefined };
-    }
-    if (json === null || typeof json !== 'object') json = { success: res.ok };
-    if (json.success === undefined) json.success = res.ok;
-    // A 2xx with success:true is the only real success; everything else gets a
-    // message, even when the body didn't carry one.
-    if (!res.ok) json.success = false;
-    json._status = res.status;
-    json._ms = Date.now() - t0;
-    if (!json.success && !json.error && !json.message) json.error = STATUS_MESSAGES[res.status] || `HTTP ${res.status}`;
-    return json;
   }
 
   // Optimize/convert/resize. `restore: true` targets the AI restoration
@@ -156,25 +205,52 @@ export class KrakenClient {
       );
     }
 
-    const res = await this._fetch(parsed.href, {});
-    if (!res.ok) throw new Error(`download failed (HTTP ${res.status})`);
     const full = path.resolve(dest);
     fs.mkdirSync(path.dirname(full), { recursive: true });
-    // An unpredictable name opened with 'wx' (O_CREAT|O_EXCL): if anything is
-    // already at that path — including a symlink someone planted in a shared
-    // output directory — the write fails instead of following it.
-    const tmp = `${full}.krakenio-${crypto.randomBytes(8).toString('hex')}.part`;
-    let bytes = 0;
-    try {
-      const fileStream = fs.createWriteStream(tmp, { flags: 'wx' });
-      const source = res.body ? Readable.fromWeb(res.body) : Readable.from([]);
-      await pipeline(source, fileStream);
-      bytes = fs.statSync(tmp).size;
-      fs.renameSync(tmp, full);
-    } catch (e) {
-      try { fs.unlinkSync(tmp); } catch { /* nothing to clean up */ }
-      throw e;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      let res;
+      try {
+        res = await this._fetch(parsed.href, {});
+      } catch (e) {
+        if (attempt < this.maxRetries && isRetryableError(e)) {
+          await sleep(this._calcDelay(attempt));
+          continue;
+        }
+        const cause = e.cause?.message ? ` (${e.cause.message})` : '';
+        throw new Error(`download failed: ${e.message}${cause}`);
+      }
+
+      if (!res.ok) {
+        if (attempt < this.maxRetries && isRetryableStatus(res.status)) {
+          const retryAfter = parseRetryAfter(res.headers?.get('retry-after'));
+          await sleep(retryAfter ?? this._calcDelay(attempt));
+          continue;
+        }
+        throw new Error(`download failed (HTTP ${res.status})`);
+      }
+
+      // An unpredictable name opened with 'wx' (O_CREAT|O_EXCL): if anything is
+      // already at that path — including a symlink someone planted in a shared
+      // output directory — the write fails instead of following it.
+      const tmp = `${full}.krakenio-${crypto.randomBytes(8).toString('hex')}.part`;
+      let bytes = 0;
+      try {
+        const fileStream = fs.createWriteStream(tmp, { flags: 'wx' });
+        const source = res.body ? Readable.fromWeb(res.body) : Readable.from([]);
+        await pipeline(source, fileStream);
+        bytes = fs.statSync(tmp).size;
+        fs.renameSync(tmp, full);
+        return bytes;
+      } catch (e) {
+        try { fs.unlinkSync(tmp); } catch { /* nothing to clean up */ }
+        if (attempt < this.maxRetries && isRetryableError(e)) {
+          await sleep(this._calcDelay(attempt));
+          continue;
+        }
+        const cause = e.cause?.message ? ` (${e.cause.message})` : '';
+        throw new Error(`download failed: ${e.message}${cause}`);
+      }
     }
-    return bytes;
   }
 }

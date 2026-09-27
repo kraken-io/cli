@@ -6,6 +6,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.2] — 2026-09-27
 
+### Resilience & Robustness
+
+- **Automatic retry with exponential backoff.** Added automatic retry logic (up to 5 retries with exponential backoff and jitter) for transient connectivity issues (`fetch failed`, socket resets) and HTTP 429 (Rate Limit) and HTTP 504 (Gateway Timeout), automatically respecting `Retry-After` headers.
+- **Tuned default batch concurrency.** Default parallel requests set to 10 (safe across varied network conditions) with an allowable range up to 100 via `--concurrency` for high-bandwidth environments.
+- **Detailed download error diagnostics.** Local download failures in batch mode now display the exact error cause and are accurately tracked in the summary and process exit code.
+
 ### Performance & Memory
 
 - **Streaming downloads direct to disk.** Downloaded images are now piped directly to disk (`Readable.fromWeb` → `fs.createWriteStream`) rather than being buffered entirely in RAM (`arrayBuffer()` + `Buffer.from()`), drastically reducing memory consumption during batch operations.

@@ -19,7 +19,7 @@ function withCommon(command) {
     .option('--no-clobber', 'never replace a file that already exists; keep it and move on')
     .option('-n, --dry-run', 'show exactly what would be sent and written, then stop')
     .option('-y, --yes', 'skip confirmation prompts')
-    .option('--concurrency <n>', 'parallel requests in batch mode', '5')
+    .option('--concurrency <n>', 'parallel requests in batch mode', '10')
     .option('--include-generated', 'also process this CLI\'s own .kraked/.restored outputs when scanning folders')
     .option('--types <list>', 'formats to pick up when scanning folders: jpg,png,gif,webp,svg,avif,heic,pdf|all '
                               + "(prefix with + to add to the defaults, e.g. '+pdf'). PDFs are excluded by default")
