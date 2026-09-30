@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0]
+
+### Official 1.0.0 Public Release
+
+- **First official public release** of the Kraken.io CLI as `@kraken-io/cli`.
+- Support for image compression (lossless and lossy), smart conversion (WebP, AVIF, JPEG, PNG, GIF), and advanced resize strategies.
+- Official Homebrew tap support (`brew install kraken-io/tap/krakenio-cli`).
+- Automatic retry with exponential backoff and streaming disk downloads.
+
 ## [0.5.0] — 2026-09-30
 
 ### Changed
