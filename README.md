@@ -278,6 +278,13 @@ Supported input formats — the ones the API accepts: **JPG, PNG, WebP, GIF, SVG
 AVIF, HEIC/HEIF, PDF**. Anything else in a folder is skipped rather than sent off to
 be rejected.
 
+> [!TIP]
+> **Batch & Bulk Processing:** When multiple files or folders are provided, the CLI processes them concurrently using an asynchronous worker pool:
+> - **Parallel requests:** Default is **10** concurrent requests; customize with `--concurrency <1..100>` (e.g. `--concurrency 25`).
+> - **Total batch size:** There is no hard limit on the total number of images in a folder — thousands of images are automatically queued and processed without blowing process memory.
+> - **Resilience:** Automatic exponential backoff retries transient network errors and rate limits (`HTTP 429` / `504`).
+
+
 | Flag | Meaning |
 |---|---|
 | `-l, --lossy` | Lossy compression — typically 50–60% smaller. **Default is lossless** |
