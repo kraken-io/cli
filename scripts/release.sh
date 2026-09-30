@@ -73,7 +73,7 @@ if [ "$DRY" -eq 1 ]; then
   say "dry run — stopping before any change"
   echo
   echo "  would run:  npm run lint && npm test"
-  echo "  would run:  npm version $next -m 'krakenio-cli v%s'"
+  echo "  would run:  npm version $next -m '@kraken-io/cli v%s'"
   echo "              (the version hook syncs Formula/ and CHANGELOG.md into that commit)"
   [ "$PUSH" -eq 1 ] && echo "  would run:  git push origin $branch --follow-tags"
   exit 0
@@ -89,7 +89,7 @@ npm test --silent >/dev/null || fail "tests failed — nothing was changed"
 # npm version writes package.json, runs the `version` hook (which syncs the
 # formula and dates the changelog, then stages them) and makes the commit + tag.
 say "bumping and tagging"
-npm version "$next" -m 'krakenio-cli v%s' >/dev/null
+npm version "$next" -m '@kraken-io/cli v%s' >/dev/null
 
 say "created $(git log -1 --format='%h %s') and tag $tag"
 

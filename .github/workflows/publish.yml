@@ -72,7 +72,8 @@ jobs:
         run: |
           name="$(node -p "require('./package.json').name")"
           version="$(node -p "require('./package.json').version")"
-          url="https://registry.npmjs.org/${name}/-/${name}-${version}.tgz"
+          pkg_base="${name##*/}"
+          url="https://registry.npmjs.org/${name}/-/${pkg_base}-${version}.tgz"
           for i in $(seq 1 30); do
             if curl -fsSL "$url" -o pkg.tgz; then
               echo "url=$url" >> "$GITHUB_OUTPUT"
@@ -109,6 +110,6 @@ jobs:
           if git diff --quiet; then
             exit 0
           fi
-          git -c user.name='Nekkradev' -c user.email='dev@nekkra.com' \
-              commit -am "krakenio-cli ${VERSION}"
+          git -c user.name='Nekkra Dev' -c user.email='dev@nekkra.com' \
+              commit -am "@kraken-io/cli ${VERSION}"
           git push

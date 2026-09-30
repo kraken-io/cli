@@ -8,8 +8,8 @@
 # Install from this repo without a tap:  brew install --formula ./Formula/krakenio-cli.rb
 class KrakenioCli < Formula
   desc "Command-line client for the Kraken.io image API"
-  homepage "https://github.com/kraken-io/krakenio-cli"
-  url "https://registry.npmjs.org/krakenio-cli/-/krakenio-cli-0.4.2.tgz"
+  homepage "https://github.com/kraken-io/cli"
+  url "https://registry.npmjs.org/@kraken-io/cli/-/cli-0.5.0.tgz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT"
 

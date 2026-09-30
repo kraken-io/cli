@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-09-30
+
+### Changed
+
+- **Scoped package name `@kraken-io/cli`.** Published as an official scoped package under the `@kraken-io` organization on npm with public access.
+- Updated npm tarball resolution in scripts and release workflows to support scoped packages.
+- Streamlined documentation: moved internal maintainer release workflows from `README.md` to `RELEASING.md`.
+
 ## [0.4.2] — 2026-09-27
 
 ### Resilience & Robustness

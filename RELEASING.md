@@ -34,7 +34,7 @@ only appear once the package leaves the repo.
 ```bash
 npm pack
 mkdir -p /tmp/krakenio-verify && cd /tmp/krakenio-verify
-npm install "$OLDPWD"/krakenio-cli-*.tgz
+npm install "$OLDPWD"/kraken-io-cli-*.tgz
 ./node_modules/.bin/krakenio --version
 echo x > photo.jpg && ./node_modules/.bin/krakenio optimize photo.jpg --dry-run
 ```

@@ -32,9 +32,10 @@ const FORMULA = 'Formula/krakenio-cli.rb';
 const PLACEHOLDER = '0'.repeat(64);
 {
   const before = read(FORMULA);
+  const pkgBase = name.startsWith('@') ? name.split('/')[1] : name;
   const after = before
     .replace(/url "https:\/\/registry\.npmjs\.org\/.*?\.tgz"/,
-      `url "https://registry.npmjs.org/${name}/-/${name}-${version}.tgz"`)
+      `url "https://registry.npmjs.org/${name}/-/${pkgBase}-${version}.tgz"`)
     .replace(/sha256 "[0-9a-f]{64}"/, `sha256 "${PLACEHOLDER}"`);
   if (after !== before) edits.push([FORMULA, after]);
 }

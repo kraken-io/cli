@@ -10,7 +10,8 @@ cd "$(dirname "$0")/.."
 
 name=$(node -p "require('./package.json').name")
 version="${1:-$(node -p "require('./package.json').version")}"
-url="https://registry.npmjs.org/${name}/-/${name}-${version}.tgz"
+pkg_base="${name##*/}"
+url="https://registry.npmjs.org/${name}/-/${pkg_base}-${version}.tgz"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

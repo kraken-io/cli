@@ -7,16 +7,16 @@
   </picture>
 </a>
 
-# krakenio-cli
+# @kraken-io/cli
 
 ### The official command-line client for [Kraken.io](https://kraken.io)
 
 **Optimize, convert and resize images from your terminal — the same image API that powers Kraken.io, with a CLI built around never surprising you about your files.**
 
-[![npm](https://img.shields.io/npm/v/krakenio-cli.svg?color=0b7285&label=npm)](https://www.npmjs.com/package/krakenio-cli)
-[![node](https://img.shields.io/node/v/krakenio-cli.svg?color=0b7285)](https://nodejs.org)
-[![ci](https://github.com/kraken-io/krakenio-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/kraken-io/krakenio-cli/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/krakenio-cli.svg?color=0b7285)](LICENSE)
+[![npm](https://img.shields.io/npm/v/@kraken-io/cli.svg?color=0b7285&label=npm)](https://www.npmjs.com/package/@kraken-io/cli)
+[![node](https://img.shields.io/node/v/@kraken-io/cli.svg?color=0b7285)](https://nodejs.org)
+[![ci](https://github.com/kraken-io/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/kraken-io/cli/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@kraken-io/cli.svg?color=0b7285)](LICENSE)
 
 [Install](#install) · [Quick start](#quick-start) · [Output rules](#output-what-gets-written-and-where) · [Commands](#command-reference) · [Cloud storage](#cloud-storage) · [Recipes](#recipes) · [Troubleshooting](#troubleshooting)
 
@@ -95,7 +95,7 @@ Three principles shape it:
 
 ```bash
 # npm — needs Node 18.17+
-npm install -g krakenio-cli
+npm install -g @kraken-io/cli
 
 # Homebrew (once the tap is published)
 brew install kraken-io/tap/krakenio-cli
@@ -107,8 +107,8 @@ brew install --formula ./Formula/krakenio-cli.rb
 Or run from a clone:
 
 ```bash
-git clone https://github.com/kraken-io/krakenio-cli.git
-cd krakenio-cli && npm install && npm link
+git clone https://github.com/kraken-io/cli.git
+cd cli && npm install && npm link
 ```
 
 Verify the install:
@@ -808,7 +808,7 @@ krakenio logs show --errors
     KRAKEN_API_KEY: ${{ secrets.KRAKEN_API_KEY }}
     KRAKEN_API_SECRET: ${{ secrets.KRAKEN_API_SECRET }}
   run: |
-    npx krakenio-cli optimize ./public/img \
+    npx @kraken-io/cli optimize ./public/img \
       --lossy --out-dir ./public/img-optimized -y \
       --concurrency 10 \
       --report krakenio-report.json \
@@ -844,7 +844,7 @@ so a planted symlink cannot redirect them, and nothing in an API response is
 allowed to decide a path outside the directory you chose.
 
 **Reporting.** For a vulnerability in the CLI, please open a
-[security advisory](https://github.com/kraken-io/krakenio-cli/security/advisories/new)
+[security advisory](https://github.com/kraken-io/cli/security/advisories/new)
 rather than a public issue.
 
 ## Troubleshooting
@@ -919,32 +919,14 @@ CI runs the suite on Linux, macOS and Windows, and on the oldest supported Node
 Tests use the real binary in a subprocess and a real local HTTP server; nothing
 is mocked at the network boundary.
 
-```bash
-./scripts/release.sh patch --dry-run   # show the plan
-./scripts/release.sh minor             # verify, bump, sync, commit and tag
-./scripts/release.sh patch --push      # …and push the branch with its tag
-```
-
-Pushing the tag is what publishes: `.github/workflows/publish.yml` fires on
-`v*.*.*` and ships to npm once the tag matches `package.json`, the version is
-not already on the registry, the changelog has a section for it, and lint and
-the suite pass. A branch push never publishes.
-
-`release.sh` refuses to run on a dirty tree, off `main`, behind `origin`, or
-without a `CHANGELOG.md` section for the new version. `package.json` stays the
-single source of truth for the version; the tag is derived from it, and the
-`version` npm hook (`scripts/sync-version.mjs`) folds the Homebrew formula and
-the changelog date into the same release commit. `npm run version:check` reports
-drift. The rest — publishing, then the formula checksum — is in
-[RELEASING.md](RELEASING.md); every change is listed in
-[CHANGELOG.md](CHANGELOG.md).
+For instructions on releasing new versions, versioning workflow and updating the Homebrew formula, see [RELEASING.md](RELEASING.md).
 
 `scripts/gen-logo.py` regenerates `src/logo-data.js` from the official media-kit
 logotype, and is the only thing in the repo that needs Python.
 
 ## Support
 
-- **Bugs and feature requests for the CLI** — [open an issue](https://github.com/kraken-io/krakenio-cli/issues)
+- **Bugs and feature requests for the CLI** — [open an issue](https://github.com/kraken-io/cli/issues)
   on this repository.
 - **API behaviour, plans, quota and billing** — the [Kraken.io documentation](https://kraken.io/docs/getting-started)
   and [Kraken.io support](https://kraken.io/contact).
