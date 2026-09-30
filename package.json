@@ -1,6 +1,6 @@
 {
   "name": "@kraken-io/cli",
-  "version": "0.5.0",
+  "version": "1.0.0",
   "description": "Command-line client for the Kraken.io image API — optimize, convert and resize images from your terminal.",
   "type": "module",
   "bin": {
