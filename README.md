@@ -16,7 +16,7 @@
 [![npm](https://img.shields.io/npm/v/@kraken-io/cli.svg?color=0b7285&label=npm)](https://www.npmjs.com/package/@kraken-io/cli)
 [![node](https://img.shields.io/node/v/@kraken-io/cli.svg?color=0b7285)](https://nodejs.org)
 [![ci](https://github.com/kraken-io/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/kraken-io/cli/actions/workflows/ci.yml)
-[![license](https://img.shields.io/npm/l/@kraken-io/cli.svg?color=0b7285)](LICENSE)
+[![license](https://img.shields.io/github/license/kraken-io/cli.svg?color=0b7285)](LICENSE)
 
 [Install](#install) · [Quick start](#quick-start) · [Output rules](#output-what-gets-written-and-where) · [Commands](#command-reference) · [Cloud storage](#cloud-storage) · [Recipes](#recipes) · [Troubleshooting](#troubleshooting)
 
