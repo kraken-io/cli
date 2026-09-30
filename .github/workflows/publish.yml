@@ -110,6 +110,6 @@ jobs:
           if git diff --quiet; then
             exit 0
           fi
-          git -c user.name='Nekkra Dev' -c user.email='dev@nekkra.com' \
+          git -c user.name='github-actions[bot]' -c user.email='github-actions[bot]@users.noreply.github.com' \
               commit -am "@kraken-io/cli ${VERSION}"
           git push
