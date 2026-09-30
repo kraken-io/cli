@@ -97,7 +97,7 @@ Three principles shape it:
 # npm — needs Node 18.17+
 npm install -g @kraken-io/cli
 
-# Homebrew (once the tap is published)
+# Homebrew
 brew install kraken-io/tap/krakenio-cli
 
 # Homebrew, straight from this repo

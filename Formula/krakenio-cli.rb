@@ -10,7 +10,7 @@ class KrakenioCli < Formula
   desc "Command-line client for the Kraken.io image API"
   homepage "https://github.com/kraken-io/cli"
   url "https://registry.npmjs.org/@kraken-io/cli/-/cli-1.0.0.tgz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "0db2d2e95b41cead2dcfabfe1a3b55f2b337e118f2072edfbc5ae3664e80b4e3"
   license "MIT"
 
   depends_on "node"
